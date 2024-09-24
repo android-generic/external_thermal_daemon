@@ -5,9 +5,9 @@ SUBDIRS = . docs data
 ACLOCAL_AMFLAGS =
 
 # Global C Flags
-AM_CFLAGS = ${DBUS_CFLAGS}
+AM_CFLAGS = ${GLIB_CFLAGS}
 AM_CXXFLAGS = \
-	${DBUS_CFLAGS} \
+	$(GLIB_CFLAGS) \
 	$(XML_CFLAGS) \
 	$(UPOWER_CFLAGS) \
 	$(EVDEV_CFLAGS) \
@@ -30,18 +30,14 @@ thermald_CPPFLAGS = \
 
 thermald_includedir = @top_srcdir@
 thermald_LDADD = \
-	$(DBUS_LIBS) \
 	$(GLIB_LIBS) \
 	$(LIBNL_LIBS) \
 	$(LIBM) \
 	$(LIBDL) \
 	$(XML_LIBS) \
-	$(LZMA_LIBS) \
 	$(UPOWER_LIBS) \
 	$(EVDEV_LIBS)
 
-BUILT_SOURCES = \
-	thd_dbus_interface.h
 
 thermald_SOURCES = \
 	src/main.cpp \
@@ -72,23 +68,20 @@ thermald_SOURCES = \
 	src/thd_rapl_power_meter.cpp \
 	src/thd_trt_art_reader.cpp \
 	src/thd_cdev_rapl_dram.cpp \
-	src/thd_cpu_default_binding.cpp \
 	src/thd_cdev_backlight.cpp \
-	src/thd_cdev_modem.cpp \
 	src/thd_int3400.cpp \
-	src/thd_cdev_kbl_amdgpu.cpp \
-	src/thd_sensor_kbl_amdgpu_power.cpp \
-	src/thd_sensor_kbl_amdgpu_thermal.cpp \
-	src/thd_zone_kbl_g_mcp.cpp \
-	src/thd_sensor_kbl_g_mcp.cpp \
-	src/thd_zone_kbl_amdgpu.cpp \
 	src/thd_sensor_rapl_power.cpp \
-	src/thd_zone_rapl_power.cpp
+	src/thd_zone_rapl_power.cpp \
+	src/thd_gddv.cpp \
+	thermald-resource.c \
+	src/thd_lzma_dec.cpp \
+	src/LzmaDec.c
+
 
 man5_MANS = man/thermal-conf.xml.5
 man8_MANS = man/thermald.8
 
-thd_dbus_interface.h: $(top_srcdir)/src/thd_dbus_interface.xml
-	$(AM_V_GEN) dbus-binding-tool --prefix=thd_dbus_interface --mode=glib-server --output=$@ $<
+thermald-resource.c: $(top_srcdir)/thermald-resource.gresource.xml
+	$(AM_V_GEN) glib-compile-resources --generate-source --sourcedir=${top_srcdir} $<
 
 CLEANFILES = $(BUILT_SOURCES)

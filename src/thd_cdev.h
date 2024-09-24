@@ -38,6 +38,9 @@ typedef struct {
 	int trip;
 	int target_state_valid;
 	int target_value;
+	int _min_state;
+	int _max_state;
+	int _min_max_valid;
 } zone_trip_limits_t;
 
 #define ZONE_TRIP_LIMIT_COUNT	12
@@ -79,9 +82,10 @@ private:
 		return _pow;
 	}
 	int thd_cdev_exponential_controller(int set_point, int target_temp,
-			int temperature, int state, int arg);
-	int thd_clamp_state_min(int _state);
-	int thd_clamp_state_max(int _state);
+			int temperature, int state, int arg, int temp_min_state = 0,
+			int temp_max_state = 0);
+	int thd_clamp_state_min(int _state, int temp_min_state = 0);
+	int thd_clamp_state_max(int _state, int temp_max_state = 0);
 public:
 	static const int default_debounce_interval = 2; // In seconds
 	cthd_cdev(unsigned int _index, std::string control_path) :
@@ -96,9 +100,10 @@ public:
 	virtual ~cthd_cdev() {
 	}
 	virtual int thd_cdev_set_state(int set_point, int target_temp,
-			int temperature, int hard_target, int state,
-			int zone_id, int trip_id, int target_state_valid, int target_value,
-			pid_param_t *pid_param, cthd_pid& pid, bool force);
+			int temperature, int hard_target, int state, int zone_id,
+			int trip_id, int target_state_valid, int target_value,
+			pid_param_t *pid_param, cthd_pid &pid, bool force,
+			int min_max_valid, int _min_state, int _max_state);
 
 	virtual int thd_cdev_set_min_state(int zone_id, int trip_id);
 
@@ -181,7 +186,7 @@ public:
 	virtual int map_target_state(int target_valid, int target_state) {
 		return target_state;
 	}
-	virtual void set_adaptive_target(struct adaptive_target) {};
+	virtual void set_adaptive_target(struct adaptive_target &target) {};
 	void set_debounce_interval(int interval) {
 		debounce_interval = interval;
 	}
@@ -235,10 +240,10 @@ public:
 		return cdev_sysfs.get_base_path();
 	}
 	void set_cdev_type(std::string _type_str) {
-		type_str = _type_str;
+		type_str = std::move(_type_str);
 	}
 	void set_cdev_alias(std::string _alias_str) {
-		alias_str = _alias_str;
+		alias_str = std::move(_alias_str);
 	}
 	void set_pid_param(double kp, double ki, double kd) {
 		pid_ctrl.kp = kp;
@@ -252,16 +257,16 @@ public:
 	}
 
 	void thd_cdev_set_write_prefix(std::string prefix) {
-		write_prefix = prefix;
+		write_prefix = std::move(prefix);
 	}
 
 	void cdev_dump() {
 		if (inc_val || dec_val){
-			thd_log_info("%d: %s, C:%d MN: %d MX:%d Inc ST:%d Dec ST:%d pt:%s rd_bk %d \n", index,
+			thd_log_info("%d: %s, C:%d MN: %d MX:%d Inc ST:%d Dec ST:%d pt:%s rd_bk %d\n", index,
 				type_str.c_str(), curr_state, min_state, max_state, inc_val, dec_val,
 				get_base_path().c_str(), read_back);
 		} else {
-			thd_log_info("%d: %s, C:%d MN: %d MX:%d ST:%d pt:%s rd_bk %d \n", index,
+			thd_log_info("%d: %s, C:%d MN: %d MX:%d ST:%d pt:%s rd_bk %d\n", index,
 				type_str.c_str(), curr_state, min_state, max_state, inc_dec_val,
 				get_base_path().c_str(), read_back);
 		}

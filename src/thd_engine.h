@@ -228,12 +228,15 @@ public:
 		return preference;
 	}
 	void set_config_file(std::string conf_file) {
-		config_file = conf_file;
+		config_file = std::move(conf_file);
 	}
 	std::string get_config_file() {
 		return config_file;
 	}
 	virtual ppcc_t *get_ppcc_param(std::string name);
+	virtual int search_idsp(std::string name) {
+		return THD_ERROR;
+	}
 	cthd_zone *search_zone(std::string name);
 	cthd_cdev *search_cdev(std::string name);
 	cthd_sensor *search_sensor(std::string name);
@@ -286,6 +289,7 @@ public:
 
 	int parser_init();
 	void parser_deinit();
+	int debug_mode_on(void);
 };
 
 #endif /* THD_ENGINE_H_ */

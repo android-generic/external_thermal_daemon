@@ -25,7 +25,7 @@
 #include "thd_cdev_intel_pstate_driver.h"
 
 /*
- * This implementation allows to control get max state and
+ * This implementation allows controlling get max state and
  * set current state of using Intel P state driver
  * P state drives uses a percent count. 100% means full
  * performance, setting anything lower limits performance.
@@ -72,10 +72,10 @@ void cthd_intel_p_state_cdev::set_turbo_disable_status(bool enable) {
 	tc_state_dev << "/no_turbo";
 	if (enable) {
 		cdev_sysfs.write(tc_state_dev.str(), "1");
-		thd_log_info("turbo disabled \n");
+		thd_log_info("turbo disabled\n");
 	} else {
 		cdev_sysfs.write(tc_state_dev.str(), "0");
-		thd_log_info("turbo enabled \n");
+		thd_log_info("turbo enabled\n");
 	}
 	turbo_status = enable;
 }

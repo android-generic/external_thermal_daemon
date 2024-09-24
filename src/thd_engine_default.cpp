@@ -22,6 +22,7 @@
  *
  */
 
+#include <cstring>
 #include <dirent.h>
 #include <errno.h>
 #include <sys/types.h>
@@ -36,20 +37,9 @@
 #include "thd_sensor_virtual.h"
 #include "thd_cdev_backlight.h"
 #include "thd_int3400.h"
-#include "thd_sensor_kbl_amdgpu_thermal.h"
-#include "thd_sensor_kbl_amdgpu_power.h"
-#include "thd_cdev_kbl_amdgpu.h"
-#include "thd_zone_kbl_amdgpu.h"
-#include "thd_sensor_kbl_g_mcp.h"
-#include "thd_zone_kbl_g_mcp.h"
-#include "thd_cdev_kbl_amdgpu.h"
-#include "thd_zone_kbl_g_mcp.h"
 #include "thd_sensor_rapl_power.h"
 #include "thd_zone_rapl_power.h"
 
-#ifdef GLIB_SUPPORT
-#include "thd_cdev_modem.h"
-#endif
 
 // Default CPU cooling devices, which are not part of thermal sysfs
 // Since non trivial initialization is not supported, we init all fields even if they are not needed
@@ -79,22 +69,10 @@ static cooling_dev_t cpu_def_cooling_devices[] = {
 cthd_engine_default::~cthd_engine_default() {
 }
 
-int cthd_engine_default::debug_mode_on(void) {
-	static const char *debug_mode = TDRUNDIR
-	"/debug_mode";
-	struct stat s;
-
-	if (stat(debug_mode, &s))
-		return 0;
-
-	return 1;
-}
-
 int cthd_engine_default::read_thermal_sensors() {
 	int index;
 	DIR *dir;
 	struct dirent *entry;
-	int sensor_mask = 0x0f;
 	cthd_sensor *sensor;
 	const std::string base_path[] = { "/sys/devices/platform/",
 			"/sys/class/hwmon/" };
@@ -147,22 +125,30 @@ int cthd_engine_default::read_thermal_sensors() {
 					if (name != "coretemp")
 						continue;
 
-					int cnt = 0;
-					unsigned int mask = 0x1;
-					do {
-						if (sensor_mask & mask) {
-							std::stringstream temp_input_str;
-							std::string path = base_path[i] + entry->d_name
-									+ "/";
-							csys_fs dts_sysfs(path.c_str());
-							temp_input_str << "temp" << cnt << "_input";
-							if (dts_sysfs.exists(temp_input_str.str())) {
+					std::string temp_dir_path = base_path[i] + entry->d_name
+							+ "/";
+					DIR *temp_dir = nullptr;
+					struct dirent *temp_dir_entry = nullptr;
+					int len_temp_dir_entry = 0;
+					int len_input = strlen("_input");
+
+					if ((temp_dir = opendir(temp_dir_path.c_str())) != NULL) {
+						while ((temp_dir_entry = readdir(temp_dir)) != NULL) {
+							len_temp_dir_entry = strlen(temp_dir_entry->d_name);
+							if ((len_temp_dir_entry >= len_input
+									&& !strcmp(
+											temp_dir_entry->d_name
+													+ len_temp_dir_entry
+													- len_input, "_input"))
+									&& (!strncmp(temp_dir_entry->d_name, "temp",
+											strlen("temp")))) {
+
 								cthd_sensor *sensor = new cthd_sensor(index,
-										base_path[i] + entry->d_name + "/"
-												+ temp_input_str.str(), "hwmon",
-										SENSOR_TYPE_RAW);
+										temp_dir_path + temp_dir_entry->d_name,
+										"hwmon", SENSOR_TYPE_RAW);
 								if (sensor->sensor_update() != THD_SUCCESS) {
 									delete sensor;
+									closedir(temp_dir);
 									closedir(dir);
 									return THD_ERROR;
 								}
@@ -170,9 +156,8 @@ int cthd_engine_default::read_thermal_sensors() {
 								++index;
 							}
 						}
-						mask = (mask << 1);
-						cnt++;
-					} while (mask != 0);
+						closedir(temp_dir);
+					}
 				}
 			}
 			closedir(dir);
@@ -183,30 +168,6 @@ int cthd_engine_default::read_thermal_sensors() {
 	if (index == current_sensor_index) {
 		// No coretemp sysfs exist, try hwmon
 		thd_log_warn("Thermal DTS: No coretemp sysfs found\n");
-	}
-
-	cthd_sensor_kbl_amdgpu_thermal *amdgpu_thermal = new cthd_sensor_kbl_amdgpu_thermal(index);
-	if (amdgpu_thermal->sensor_update() == THD_SUCCESS) {
-		sensors.push_back(amdgpu_thermal);
-		++index;
-	} else {
-		delete amdgpu_thermal;
-	}
-
-	cthd_sensor_kbl_amdgpu_power *amdgpu_power = new cthd_sensor_kbl_amdgpu_power(index);
-	if (amdgpu_power->sensor_update() == THD_SUCCESS) {
-		sensors.push_back(amdgpu_power);
-		++index;
-	} else {
-		delete amdgpu_power;
-	}
-
-	cthd_sensor_kbl_g_mcp *mcp_power = new cthd_sensor_kbl_g_mcp(index);
-	if (mcp_power->sensor_update() == THD_SUCCESS) {
-		sensors.push_back(mcp_power);
-		++index;
-	} else {
-		delete mcp_power;
 	}
 
 	if (debug_mode_on()) {
@@ -312,13 +273,12 @@ bool cthd_engine_default::add_int340x_processor_dev(void)
 
 				if (critical && passive + 5 * 1000 >= critical) {
 					new_passive = critical - 15 * 1000;
-					if (new_passive < critical)
-						trip->thd_trip_update_set_point(new_passive);
+					trip->thd_trip_update_set_point(new_passive);
 				}
 
-				thd_log_info("Processor thermal device is present \n");
-				thd_log_info("It will act as CPU thermal zone !! \n");
-				thd_log_info("Processor thermal device passive Trip is %d\n",
+				thd_log_info("Processor thermal device is present\n");
+				thd_log_info("It will act as CPU thermal zone !!\n");
+				thd_log_info("Processor thermal device passive Trip is %u\n",
 						trip->get_trip_temp());
 
 				processor_thermal->set_zone_active();
@@ -400,7 +360,7 @@ int cthd_engine_default::read_thermal_zones() {
 
 	if (!thd_ignore_default_control && !valid_int340x && !search_zone("cpu")) {
 		bool cpu_zone_created = false;
-		thd_log_info("zone cpu will be created \n");
+		thd_log_info("zone cpu will be created\n");
 		// Default CPU temperature zone
 		// Find path to read DTS temperature
 		for (i = 0; i < 2; ++i) {
@@ -464,11 +424,11 @@ int cthd_engine_default::read_thermal_zones() {
 			thermal_zone_t *zone_config = parser.get_zone_dev_index(i);
 			if (!zone_config)
 				continue;
-			thd_log_debug("Look for Zone  [%s] \n", zone_config->type.c_str());
+			thd_log_debug("Look for Zone  [%s]\n", zone_config->type.c_str());
 			cthd_zone *zone = search_zone(zone_config->type);
 			if (zone) {
 				activate = false;
-				thd_log_info("Zone already present %s \n",
+				thd_log_info("Zone already present %s\n",
 						zone_config->type.c_str());
 				for (unsigned int k = 0; k < zone_config->trip_pts.size();
 						++k) {
@@ -525,7 +485,7 @@ int cthd_engine_default::read_thermal_zones() {
 						}
 						zone->add_trip(trip_pt);
 					} else {
-						thd_log_debug("Trip temp == 0 is in zone %s \n",
+						thd_log_debug("Trip temp == 0 is in zone %s\n",
 								zone_config->type.c_str());
 						// Try to find some existing non zero trips and associate the cdevs
 						// This is the way from an XML config a generic cooling device
@@ -595,7 +555,7 @@ int cthd_engine_default::read_thermal_zones() {
 	}
 
 	if (!zones.size()) {
-		thd_log_info("No Thermal Zones found \n");
+		thd_log_info("No Thermal Zones found\n");
 		return THD_FATAL_ERROR;
 	}
 #ifdef AUTO_DETECT_RELATIONSHIP
@@ -627,18 +587,7 @@ int cthd_engine_default::add_replace_cdev(cooling_dev_t *config) {
 	}
 	if (!cdev_present) {
 		// create new
-		if (config->type_string.compare("intel_modem") == 0) {
-#ifdef GLIB_SUPPORT
-			/*
-			 * Add Modem as cdev
-			 * intel_modem is a modem identifier across all intel platforms.
-			 * The differences between the modems of various intel platforms
-			 * are to be taken care in the cdev implementation.
-			 */
-			cdev = new cthd_cdev_modem(current_cdev_index, config->path_str);
-#endif
-		} else
-			cdev = new cthd_gen_sysfs_cdev(current_cdev_index, config->path_str);
+		cdev = new cthd_gen_sysfs_cdev(current_cdev_index, config->path_str);
 		if (!cdev)
 			return THD_ERROR;
 		cdev->set_cdev_type(config->type_string);
@@ -793,18 +742,6 @@ int cthd_engine_default::read_cooling_devices() {
 			delete backlight_dev;
 	}
 
-	cthd_cdev *cdev_amdgpu = search_cdev("amdgpu");
-	if (!cdev_amdgpu) {
-		cthd_cdev_kgl_amdgpu *cdev_amdgpu = new cthd_cdev_kgl_amdgpu(
-				current_cdev_index, 0);
-		cdev_amdgpu->set_cdev_type("amdgpu");
-		if (cdev_amdgpu->update() == THD_SUCCESS) {
-			cdevs.push_back(cdev_amdgpu);
-			++current_cdev_index;
-		} else
-			delete cdev_amdgpu;
-	}
-
 	// Add from XML cooling device config
 	if (!parser_init() && parser.platform_matched()) {
 		for (int i = 0; i < parser.cdev_count(); ++i) {
@@ -910,8 +847,6 @@ void cthd_engine_default::workaround_rapl_mmio_power(void)
 	unsigned int ebx, ecx, edx;
 	unsigned int fms, family, model;
 
-	csys_fs sys_fs;
-
 	ecx = edx = 0;
 	__cpuid(1, fms, ebx, ecx, edx);
 	family = (fms >> 8) & 0xf;
@@ -980,29 +915,9 @@ void cthd_engine_default::workaround_tcc_offset(void)
 			tcc_offset_checked = 1;
 		}
 	} else {
-		csys_fs msr_sysfs;
-		int ret;
-
-		if(msr_sysfs.exists("/dev/cpu/0/msr")) {
-			unsigned long long val = 0;
-
-			ret = msr_sysfs.read("/dev/cpu/0/msr", 0x1a2, (char *)&val, sizeof(val));
-			if (ret > 0) {
-				int tcc;
-
-				tcc = (val >> 24) & 0xff;
-				if (tcc > 10) {
-					val &= ~(0xff << 24);
-					val |= (0x05 << 24);
-					msr_sysfs.write("/dev/cpu/0/msr", 0x1a2, val);
-					tcc_offset_checked = 1;
-				} else {
-					if (!tcc_offset_checked)
-						tcc_offset_low = 1;
-					tcc_offset_checked = 1;
-				}
-			}
-		}
+		thd_log_info("Kernel update is required to update TCC\n");
+		tcc_offset_checked = 1;
+		tcc_offset_low = 1;
 	}
 #endif
 }

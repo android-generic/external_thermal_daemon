@@ -1,7 +1,7 @@
 AC_PREREQ(1.0)
 
 m4_define([td_major_version], [2])
-m4_define([td_minor_version], [4.9])
+m4_define([td_minor_version], [5.8])
 m4_define([td_version],
           [td_major_version.td_minor_version])
 
@@ -21,9 +21,17 @@ AC_ARG_WITH(dbus-sys-dir, AS_HELP_STRING([--with-dbus-sys-dir=DIR], [where D-BUS
 if test -n "$with_dbus_sys_dir" ; then
     DBUS_SYS_DIR="$with_dbus_sys_dir"
 else
-    DBUS_SYS_DIR="/etc/dbus-1/system.d"
+    DBUS_SYS_DIR="/usr/share/dbus-1/system.d"
 fi
 AC_SUBST(DBUS_SYS_DIR)
+
+AC_ARG_WITH(dbus-power-group, AS_HELP_STRING([--with-dbus-power-group=GROUP], [group that is allowed to connect to D-BUS service]))
+if test -n "$with_dbus_power_group" ; then
+    DBUS_POWER_GROUP="$with_dbus_power_group"
+else
+    DBUS_POWER_GROUP="power"
+fi
+AC_SUBST(DBUS_POWER_GROUP)
 
 # paths
 AC_SUBST(tdbinary, "$sbindir/$PACKAGE", [Binary executable])
@@ -54,20 +62,10 @@ GETTEXT_PACKAGE=thermald
 AC_SUBST(GETTEXT_PACKAGE)
 AC_DEFINE_UNQUOTED(GETTEXT_PACKAGE,"$GETTEXT_PACKAGE", [Gettext package])
 
-dnl
-dnl Checks for new dbus-glib property access function
-dnl
-AC_CHECK_LIB([dbus-glib-1], [dbus_glib_global_set_disable_legacy_property_access], ac_have_dg_prop="1", ac_have_dg_prop="0")
-AC_DEFINE_UNQUOTED(HAVE_DBUS_GLIB_DISABLE_LEGACY_PROP_ACCESS, $ac_have_dg_prop, [Define if you have a dbus-glib with dbus_glib_global_set_disable_legacy_property_access()])
-
-PKG_CHECK_MODULES(DBUS, dbus-1 >= 1.1 dbus-glib-1 >= 0.94)
-AC_SUBST(DBUS_CFLAGS)
-AC_SUBST(DBUS_LIBS)
-
 GLIB_VERSION_DEFINES="-DGLIB_VERSION_MIN_REQUIRED=GLIB_VERSION_2_26"
 DBUS_CFLAGS="$DBUS_CFLAGS $GLIB_VERSION_DEFINES"
 
-PKG_CHECK_MODULES(GLIB, gio-unix-2.0 >= 2.22 gmodule-2.0)
+PKG_CHECK_MODULES(GLIB, gio-unix-2.0 >= 2.22 gmodule-2.0 glib-2.0)
 GLIB_CFLAGS="$GLIB_CFLAGS $GLIB_VERSION_DEFINES"
 AC_SUBST(GLIB_CFLAGS)
 AC_SUBST(GLIB_LIBS)
@@ -75,7 +73,6 @@ AC_SUBST(GLIB_LIBS)
 PKG_CHECK_MODULES(XML, libxml-2.0 >= 2.4)
 
 AC_PATH_PROG([GDBUS_CODEGEN],[gdbus-codegen])
-PKG_CHECK_MODULES(LZMA, liblzma)
 
 PKG_CHECK_MODULES(UPOWER, upower-glib)
 
@@ -121,5 +118,11 @@ AC_CONFIG_FILES([Makefile
                  docs/Makefile
                  docs/version.xml
                  data/Makefile])
+
+AC_ARG_ENABLE(gdbus,
+              [AS_HELP_STRING([--disable-gdbus],
+                              [Switch DBus backend to glib-dbus. (Default: GDBus)])],
+              [],
+              [AC_DEFINE([GDBUS], [1], [Enable GDBus support])])
 
 AC_OUTPUT

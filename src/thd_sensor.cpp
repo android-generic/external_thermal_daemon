@@ -28,7 +28,7 @@
 cthd_sensor::cthd_sensor(int _index, std::string control_path,
 		std::string _type_str, int _type) :
 		index(_index), type(_type), sensor_sysfs(control_path.c_str()), sensor_active(
-				false), type_str(_type_str), async_capable(false), virtual_sensor(
+				false), type_str(std::move(_type_str)), async_capable(false), virtual_sensor(
 				false), thresholds(0), scale(1) {
 
 }
@@ -74,7 +74,7 @@ unsigned int cthd_sensor::read_temperature() {
 	std::istringstream(buffer) >> temp;
 	if (temp < 0)
 		temp = 0;
-	thd_log_debug("Sensor %s :temp %u \n", type_str.c_str(), temp);
+	thd_log_debug("Sensor %s :temp %u\n", type_str.c_str(), temp);
 	return (unsigned int)temp / scale;
 }
 

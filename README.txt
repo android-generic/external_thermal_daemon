@@ -28,11 +28,9 @@ Install
 	yum install gcc
 	yum install gcc-c++
 	yum install glib-devel
-	yum install dbus-glib-devel
 	yum install libxml2-devel
 	yum install gtk-doc
 	yum install upower-devel
-	yum install xz-devel
 	yum install libevdev-devel
 
 Replace yum with dnf for later Fedora versions.
@@ -43,6 +41,11 @@ Build
 	./autogen.sh prefix=/
 	make
 	sudo make install
+
+The prefix value depends on the distribution version.
+This can be "/" or "/usr". So please check existing
+path of thermald install, if present to update and
+add appropriate prefix.
 
 3
 - start service
@@ -60,17 +63,14 @@ Build
 
 Building on Ubuntu
 1. Install
-	sudo apt-get install autoconf
-	sudo apt-get install autoconf-archive
-	sudo apt-get install g++
-	sudo apt-get install libglib2.0-dev
-	sudo apt-get install libdbus-1-dev
-	sudo apt-get install libdbus-glib-1-dev
-	sudo apt-get install libxml2-dev
-	sudo apt-get install gtk-doc-tools
-	sudo apt-get install libupower-glib-dev
-	sudo apt-get install liblzma-dev
-	sudo apt-get install libevdev-dev
+	sudo apt install autoconf
+	sudo apt install autoconf-archive
+	sudo apt install g++
+	sudo apt install libglib2.0-dev
+	sudo apt install libxml2-dev
+	sudo apt install gtk-doc-tools
+	sudo apt install libupower-glib-dev
+	sudo apt install libevdev-dev
 
 2
 Build
@@ -97,12 +97,10 @@ Install
 	zypper in gcc
 	zypper in gcc-c++
 	zypper in glib2-devel
-	zypper in dbus-1-glib-devel
 	zypper in libxml2-devel
 	zypper in automake autoconf-archive
 	zypper in gtk-doc
 	zypper in libupower-glib-devel
-	zypper in xz-devel
 	zypper in libevdev-devel
 
 For build, follow the same procedure as Fedora.
@@ -110,6 +108,45 @@ For build, follow the same procedure as Fedora.
 -------------------------------------------
 
 Releases
+
+Release 2.5.8
+- Lunar Lake support
+- Arrow Lake support
+- Remove coverity errors to minimum
+- Add a script to plot temperature and trips from debug log
+- Deprecate modem/KBL-G support
+- Remove dbus-glib-devel as requirment
+
+Release 2.5.7
+- Remove dependency on lzma libs
+- Fix remaining issues with  GDBUS transition
+- Seg fault when no config file for the first time
+
+Release 2.5.6
+- Fix crash with GDBus port
+
+Release 2.5.5
+- Use GDBus for dbus
+- Handle single trip to solve thermal shutdown issue for an Alder Lake desktop
+
+Release 2.5.4
+- Android support
+- Workarounds for missing conditions/tables
+
+Release 2.5.3
+- Support Meteor Lake
+
+Release 2.5.2
+- Support Alder Lake N
+- Support ITMT version 2, which is used in some Raptor Lake systems
+
+Release 2.5.1
+- Static analysis fixes
+- Missing init, which causes skipping of conditions in a Dell system
+
+Release 2.5
+- Support of new thermal table for Alder Lake
+- Add Raptor Lake in the list
 
 Release 2.4.9
 - Fix performance issues for Dell Latitude 5421
@@ -193,7 +230,7 @@ Release 1.9.1
 Release 1.9
 - The major change in this version is the active power limits adjustment.
 This will be useful to improve performance on some newer platform. But
-this will will lead to increase in CPU and other temperatures. Hence this
+this will lead to increase in CPU and other temperatures. Hence this
 is important to run dptfxtract version 1.4.1 tool to get performance
 sensitive thermal limits (https://github.com/intel/dptfxtract/commits/v1.4.1).
 If the default configuration picked up by thermald is not optimal, user
@@ -208,8 +245,8 @@ secure boot must update to newer kernels.
 
 - TCC offset limits
 As reported in some forums that some platforms have issue with high TCC
-offset settings. Under some special condition this offset is adjusted.
-But currently needs msr module loaded to get MSR access
+offset settings. Under some special condition this offset is adjusted,
+but that currently needs msr module loaded to get MSR access
 from user space. I have submitted a patch to have this exported via sysfs
 for v5.4+ kernel.
 
@@ -397,7 +434,7 @@ on slope and angular increments to dynamically adjust set point
 
 
 Version 0.2
-- Define XML interface to set configuration data. Refer to thermal-conf.xml. This allows to override buggy Bios thermal comfiguration and also allows to extend the capability.
+- Define XML interface to set configuration data. Refer to thermal-conf.xml. This allows overriding buggy Bios thermal comfiguration and also allows extending the capability.
 - Use platform DMI UUID to index into configuration data. If there is no UUID match, falls back to thermal sysfs
 - Terminate interface
 - Takes over control from kernel thermal processing

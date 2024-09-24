@@ -69,7 +69,7 @@ public:
 	int set_threshold(int index, int temp);
 	;
 	void update_path(std::string str) {
-		sensor_sysfs.update_path(str);
+		sensor_sysfs.update_path(std::move(str));
 	}
 	void set_async_capable(bool capable) {
 		async_capable = capable;
@@ -81,7 +81,7 @@ public:
 		scale = _scale;
 	}
 	virtual void sensor_dump() {
-		thd_log_info("sensor index:%d %s %s Async:%d \n", index,
+		thd_log_info("sensor index:%d %s %s Async:%d\n", index,
 				type_str.c_str(), sensor_sysfs.get_base_path(), async_capable);
 	}
 	// Even if sensors are capable of async, it is possible that it is not reliable enough

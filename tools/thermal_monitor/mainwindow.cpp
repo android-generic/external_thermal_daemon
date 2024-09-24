@@ -12,7 +12,7 @@
 */
 
 #include <QMessageBox>
-#include <QDesktopWidget>
+#include <QScreen>
 #include "mainwindow.h"
 #include "pollingdialog.h"
 #include "sensorsdialog.h"
@@ -27,7 +27,7 @@
 #define SAMPLE_STORE_SIZE 100
 #define DEFAULT_LOGFILE_NAME "log.txt"
 #define CUSTOMPLOT_YAXIS_RANGE 120
-#define VERSION_NUMBER "1.2"
+#define VERSION_NUMBER "1.3"
 
 MainWindow::MainWindow(ThermaldInterface *thermaldInterface) : QMainWindow(),
     temp_samples(SAMPLE_STORE_SIZE),
@@ -79,7 +79,7 @@ void MainWindow::setupMenus()
     settingsMenu->addAction("Configure &polling interval", this, SLOT(configurePollingInterval()));
     settingsMenu->addAction("Configure &sensors", this, SLOT(configureSensors()));
     settingsMenu->addAction("&Clear settings and quit", this, SLOT(clearAndExit()));
-    settingsMenu->addAction("&Quit", this, SLOT(close()), QKeySequence::Quit);
+    settingsMenu->addAction("&Quit", this, SLOT(close()));
     QMenu *helpMenu = menuBar()->addMenu("&Help");
     helpMenu->addAction("&About", this, SLOT(showAboutDialog()));
 }
@@ -116,6 +116,9 @@ void MainWindow::setupPlotWidget()
     currentTempsensorIndex = 0;
     int active_zone = 0;
     for (uint zone = 0; zone < m_thermaldInterface->getZoneCount(); zone++) {
+        // Trips is indexed by zone. We need to make sure there is a tips item
+        // (even if empty) for each zone.
+        trips.append(QVector<QCPItemLine *>());
 
         zoneInformationType *zone_info = m_thermaldInterface->getZone(zone);
         if (!zone_info)
@@ -180,7 +183,7 @@ void MainWindow::setupPlotWidget()
                 }
                 these_trips.append(line);
             }
-            trips.append(these_trips);
+            trips.last().swap(these_trips);
         }
     }
 
@@ -239,7 +242,7 @@ void MainWindow::updateTemperatureDataSlot()
         }
 
     if(logging_enabled) {
-        outStreamLogging << endl;
+            outStreamLogging << Qt::endl;
     }
 
     m_plotWidget->replot();
@@ -298,8 +301,8 @@ void MainWindow::loadSettings()
         move(settings.value("mainWindowGeometry/pos").toPoint());
     } else {
         // otherwise start with the default geometry calculated from the desktop size
-        QDesktopWidget desktop;
-        QRect screen = desktop.screenGeometry();
+	QScreen *qscreen = QGuiApplication::primaryScreen();
+        QRect screen = qscreen->availableGeometry();
         int width, height, x, y;
 
         width = screen.width() / DEFAULT_SCREEN_SIZE_DIVISOR;
@@ -400,7 +403,7 @@ void MainWindow::changeLogVariables(bool log_enabled, bool log_vis_only,
         QTextStream out(&logging_file);
         if (!logging_file.open(QIODevice::WriteOnly | QIODevice::Text)) {
             qCritical() << "Cannot open file for writing: "
-                        << qPrintable(logging_file.errorString()) << endl;
+                        << qPrintable(logging_file.errorString()) << Qt::endl;
             return;
         }
         outStreamLogging.setDevice(&logging_file);
@@ -411,7 +414,7 @@ void MainWindow::changeLogVariables(bool log_enabled, bool log_vis_only,
                 outStreamLogging << m_plotWidget->graph(i)->name() << ", ";
             }
         }
-        outStreamLogging << endl;
+        outStreamLogging << Qt::endl;
     }
 
     // logging has been turned off, so close the file
@@ -488,7 +491,10 @@ void MainWindow::showAboutDialog()
     QString str;
     str = QString("<h3>Thermal Monitor %1</h3>"
                   "<p>GUI for Linux thermal daemon (thermald)</p>"
-                  "<p>Copyright (c) 2020, Intel Corporation</p>")
+                  "<p>Copyright (c) 2022, Intel Corporation</p>"
+                  "<p>This program comes with ABSOLUTELY NO WARRANTY</p>"
+                  "<p>This work is licensed under GPL v3</p>"
+                  "<p>Refer to https://www.gnu.org/licenses/gpl-3.0.txt</p>")
             .arg(QString(VERSION_NUMBER));
     QMessageBox::about(this, "About Thermal Monitor", str);
 }
