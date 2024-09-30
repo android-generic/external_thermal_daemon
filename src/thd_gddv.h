@@ -250,7 +250,7 @@ public:
 	}
 #else
 	cthd_gddv() :
-			int3400_base_path(""), current_condition_set(0xffff) {
+			int3400_base_path("") {
 	}
 
 #endif

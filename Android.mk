@@ -32,12 +32,6 @@ LOCAL_SRC_FILES := \
 		src/thd_cpu_default_binding.cpp \
 		src/thd_cdev_backlight.cpp \
 		src/thd_int3400.cpp \
-		src/thd_cdev_kbl_amdgpu.cpp \
-		src/thd_sensor_kbl_amdgpu_power.cpp \
-		src/thd_sensor_kbl_amdgpu_thermal.cpp \
-		src/thd_zone_kbl_g_mcp.cpp \
-		src/thd_sensor_kbl_g_mcp.cpp \
-		src/thd_zone_kbl_amdgpu.cpp \
 		src/thd_sensor_rapl_power.cpp \
 		src/thd_zone_rapl_power.cpp \
 		src/thd_engine_adaptive.cpp \
